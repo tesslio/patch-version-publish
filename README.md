@@ -11,7 +11,7 @@ Composite GitHub Action that publishes [tessl](https://tessl.io) tiles with smar
 - uses: actions/checkout@v4
 - uses: tesslio/setup-tessl@v2
   with:
-    token: ${{ secrets.TESSL_API_TOKEN }}
+    token: ${{ secrets.TESSL_TOKEN }}
 - uses: jbaruch/tessl-smart-publish@v1
 ```
 
