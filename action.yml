@@ -4,6 +4,9 @@ description: 'Publish a tessl tile, auto-bumping patch version when not manually
 runs:
   using: 'composite'
   steps:
+    - name: Ensure parent commit is available
+      shell: bash
+      run: git fetch --deepen=1
     - name: Smart publish
       shell: bash
       run: |
