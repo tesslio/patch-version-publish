@@ -1,6 +1,6 @@
 # tessl-smart-publish
 
-Composite GitHub Action that reviews and publishes [tessl](https://tessl.io) tiles with smart version handling.
+Composite GitHub Action that publishes [tessl](https://tessl.io) tiles with smart version handling.
 
 - If `tile.json` version was **manually bumped** in the commit — publishes as-is
 - If version is **unchanged** — auto-bumps patch before publishing
@@ -14,16 +14,9 @@ Composite GitHub Action that reviews and publishes [tessl](https://tessl.io) til
 - uses: tesslio/setup-tessl@v2
   with:
     token: ${{ secrets.TESSL_API_TOKEN }}
+- run: tessl skill review --threshold 85  # optional
 - uses: jbaruch/tessl-smart-publish@v1
-  with:
-    review-threshold: 85  # optional, 0 to skip review
 ```
-
-## Inputs
-
-| Input | Description | Default |
-|---|---|---|
-| `review-threshold` | Minimum `tessl skill review` score (0-100). `0` skips review. | `0` |
 
 ## Requirements
 

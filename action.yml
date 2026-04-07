@@ -1,20 +1,9 @@
 name: 'Tessl Smart Publish'
-description: 'Review and publish a tessl tile, auto-bumping patch version when not manually changed'
-
-inputs:
-  review-threshold:
-    description: 'Minimum review score (0-100). Set to 0 to skip review.'
-    required: false
-    default: '0'
+description: 'Publish a tessl tile, auto-bumping patch version when not manually changed'
 
 runs:
   using: 'composite'
   steps:
-    - name: Review skill
-      if: inputs.review-threshold != '0'
-      shell: bash
-      run: tessl skill review --threshold ${{ inputs.review-threshold }}
-
     - name: Smart publish
       shell: bash
       run: |
