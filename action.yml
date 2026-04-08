@@ -2,6 +2,9 @@ name: 'Tessl Smart Publish'
 description: 'Publish a tessl tile, auto-bumping patch from the registry'
 
 inputs:
+  token:
+    description: 'Tessl API token'
+    required: true
   path:
     description: 'Path to the tile directory (default: repo root)'
     required: false
@@ -15,6 +18,10 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Setup Tessl CLI
+      uses: tesslio/setup-tessl@v2
+      with:
+        token: ${{ inputs.token }}
     - name: Smart publish
       id: publish
       shell: bash
