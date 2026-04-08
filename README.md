@@ -3,7 +3,7 @@
 Composite GitHub Action that publishes [tessl](https://tessl.io) tiles with smart version handling.
 
 - If `tile.json` version was **manually bumped** in the commit — publishes as-is
-- If version is **unchanged** — auto-bumps patch before publishing
+- If version is **unchanged** — queries the registry for the latest published version and bumps patch from that
 
 ## Usage
 

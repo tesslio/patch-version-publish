@@ -28,14 +28,24 @@ runs:
         PREVIOUS=$(git show "HEAD~1:$TILE_JSON" 2>/dev/null | jq -r .version 2>/dev/null || echo "")
         if [ "$CURRENT" != "$PREVIOUS" ]; then
           echo "Version manually bumped to $CURRENT — publishing as-is"
-          tessl tile publish $TILE_PATH
+          tessl tile publish "$TILE_PATH"
           echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
         else
-          echo "Version unchanged ($CURRENT) — auto-bumping patch"
-          tessl tile publish $TILE_PATH --bump patch
-          # Derive bumped version (patch increment)
-          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
-          MINOR=$(echo "$CURRENT" | cut -d. -f2)
-          PATCH=$(echo "$CURRENT" | cut -d. -f3)
-          echo "version=$MAJOR.$MINOR.$((PATCH + 1))" >> "$GITHUB_OUTPUT"
+          # Query registry for the latest published version and bump from that
+          TILE_NAME=$(jq -r .name "$TILE_JSON")
+          LATEST=$(tessl tile info "$TILE_NAME" 2>/dev/null | grep 'Latest Version' | awk '{print $NF}')
+          if [ -n "$LATEST" ]; then
+            BASE="$LATEST"
+          else
+            BASE="$CURRENT"
+          fi
+          MAJOR=$(echo "$BASE" | cut -d. -f1)
+          MINOR=$(echo "$BASE" | cut -d. -f2)
+          PATCH=$(echo "$BASE" | cut -d. -f3)
+          NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
+          echo "Version unchanged in commit — bumping from registry $BASE to $NEXT"
+          # Update tile.json locally with the new version before publishing
+          jq --arg v "$NEXT" '.version = $v' "$TILE_JSON" > "$TILE_JSON.tmp" && mv "$TILE_JSON.tmp" "$TILE_JSON"
+          tessl tile publish "$TILE_PATH"
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
         fi
