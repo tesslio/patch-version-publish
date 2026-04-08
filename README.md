@@ -16,7 +16,7 @@ For a real release — bump the version in `tile.json` yourself. The action will
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: jbaruch/tessl-smart-publish@v1
+- uses: tesslio/tessl-smart-publish@v1
   with:
     token: ${{ secrets.TESSL_TOKEN }}
 ```
@@ -24,7 +24,7 @@ For a real release — bump the version in `tile.json` yourself. The action will
 For tiles in a subdirectory:
 
 ```yaml
-- uses: jbaruch/tessl-smart-publish@v1
+- uses: tesslio/tessl-smart-publish@v1
   with:
     token: ${{ secrets.TESSL_TOKEN }}
     path: tiles/my-tile
