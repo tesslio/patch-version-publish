@@ -1,9 +1,8 @@
 # tessl-smart-publish
 
-Composite GitHub Action that publishes [tessl](https://tessl.io) tiles with smart version handling.
+Composite GitHub Action that publishes [tessl](https://tessl.io) tiles with automatic patch versioning.
 
-- If `tile.json` version was **manually bumped** in the commit — publishes as-is
-- If version is **unchanged** — queries the registry for the latest published version and bumps patch from that
+On every push, the action queries the registry for the latest published version, bumps patch, updates `tile.json`, publishes, and commits the version back (with `[skip ci]`).
 
 ## Usage
 
@@ -33,11 +32,10 @@ For tiles in a subdirectory:
 
 | Output | Description |
 |---|---|
-| `version` | The version that was published (including auto-bumped) |
+| `version` | The version that was published |
 
 ## Requirements
 
 - `tessl` must be on PATH (use `tesslio/setup-tessl`)
 - `TESSL_TOKEN` env var set (handled by `tesslio/setup-tessl`)
-- `contents: write` permission — when auto-bumping, the action commits the new version back to `tile.json` (with `[skip ci]`) so the repo stays in sync with the registry
-- The action runs `git fetch --deepen=1` to retrieve the parent commit, so it can compare `tile.json` version between the current and previous commit to detect manual bumps
+- `contents: write` permission — the action commits the bumped version back to `tile.json`

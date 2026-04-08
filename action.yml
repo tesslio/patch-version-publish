@@ -1,5 +1,5 @@
 name: 'Tessl Smart Publish'
-description: 'Publish a tessl tile, auto-bumping patch version when not manually changed'
+description: 'Publish a tessl tile, auto-bumping patch from the registry'
 
 inputs:
   path:
@@ -15,42 +15,43 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Ensure parent commit is available
-      shell: bash
-      run: git fetch --deepen=1
     - name: Smart publish
       id: publish
       shell: bash
       run: |
         TILE_PATH="${{ inputs.path }}"
         TILE_JSON="$TILE_PATH/tile.json"
-        CURRENT=$(jq -r .version "$TILE_JSON")
-        PREVIOUS=$(git show "HEAD~1:$TILE_JSON" 2>/dev/null | jq -r .version 2>/dev/null || echo "")
-        if [ "$CURRENT" != "$PREVIOUS" ]; then
-          echo "Version manually bumped to $CURRENT — publishing as-is"
-          tessl tile publish "$TILE_PATH"
-          echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
+        TILE_NAME=$(jq -r .name "$TILE_JSON")
+
+        # Query registry for the latest published version
+        LATEST=$(tessl tile info "$TILE_NAME" 2>/dev/null | grep 'Latest Version' | awk '{print $NF}')
+        if [ -n "$LATEST" ]; then
+          BASE="$LATEST"
         else
-          # Query registry for the latest published version and bump from that
-          TILE_NAME=$(jq -r .name "$TILE_JSON")
-          LATEST=$(tessl tile info "$TILE_NAME" 2>/dev/null | grep 'Latest Version' | awk '{print $NF}')
-          if [ -n "$LATEST" ]; then
-            BASE="$LATEST"
-          else
-            BASE="$CURRENT"
-          fi
+          # First publish — use version from tile.json
+          BASE=$(jq -r .version "$TILE_JSON")
+          # Subtract 1 from patch so the bump lands on the tile.json version
           MAJOR=$(echo "$BASE" | cut -d. -f1)
           MINOR=$(echo "$BASE" | cut -d. -f2)
           PATCH=$(echo "$BASE" | cut -d. -f3)
-          NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
-          echo "Version unchanged in commit — bumping from registry $BASE to $NEXT"
-          jq --arg v "$NEXT" '.version = $v' "$TILE_JSON" > "$TILE_JSON.tmp" && mv "$TILE_JSON.tmp" "$TILE_JSON"
-          tessl tile publish "$TILE_PATH"
-          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
-          # Commit the bumped version back to the repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$TILE_JSON"
+          BASE="$MAJOR.$MINOR.$((PATCH - 1))"
+        fi
+
+        MAJOR=$(echo "$BASE" | cut -d. -f1)
+        MINOR=$(echo "$BASE" | cut -d. -f2)
+        PATCH=$(echo "$BASE" | cut -d. -f3)
+        NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
+
+        echo "Registry: $LATEST → publishing $NEXT"
+        jq --arg v "$NEXT" '.version = $v' "$TILE_JSON" > "$TILE_JSON.tmp" && mv "$TILE_JSON.tmp" "$TILE_JSON"
+        tessl tile publish "$TILE_PATH"
+        echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+
+        # Commit the bumped version back to the repo
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add "$TILE_JSON"
+        git diff --cached --quiet || {
           git commit -m "Bump $TILE_NAME to $NEXT [skip ci]"
           git push
-        fi
+        }
