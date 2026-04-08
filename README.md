@@ -46,3 +46,4 @@ For tiles in a subdirectory:
 ## Requirements
 
 - `contents: write` permission — the action commits the bumped version back to `tile.json`
+- `pull-requests: write` permission — if branch protection blocks direct push, the action falls back to creating a PR with the version bump

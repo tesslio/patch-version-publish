@@ -68,5 +68,12 @@ runs:
         git add "$TILE_JSON"
         git diff --cached --quiet || {
           git commit -m "Bump $TILE_NAME to $VERSION [skip ci]"
-          git push
+          git push 2>/dev/null || {
+            BRANCH="tessl-bump-$VERSION"
+            git checkout -b "$BRANCH"
+            git push -u origin "$BRANCH"
+            gh pr create \
+              --title "Bump $TILE_NAME to $VERSION [skip ci]" \
+              --body "Auto-created by tessl-smart-publish — direct push blocked by branch protection."
+          }
         }
