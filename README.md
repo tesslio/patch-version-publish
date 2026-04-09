@@ -1,4 +1,4 @@
-# tessl-smart-publish
+# patch-version-publish
 
 Composite GitHub Action that publishes [tessl](https://tessl.io) tiles with automatic patch versioning.
 
@@ -16,7 +16,7 @@ For a real release — bump the version in `tile.json` yourself. The action will
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: tesslio/tessl-smart-publish@v1
+- uses: tesslio/patch-version-publish@v1
   with:
     token: ${{ secrets.TESSL_TOKEN }}
 ```
@@ -24,7 +24,7 @@ For a real release — bump the version in `tile.json` yourself. The action will
 For tiles in a subdirectory:
 
 ```yaml
-- uses: tesslio/tessl-smart-publish@v1
+- uses: tesslio/patch-version-publish@v1
   with:
     token: ${{ secrets.TESSL_TOKEN }}
     path: tiles/my-tile

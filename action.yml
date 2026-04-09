@@ -76,6 +76,6 @@ runs:
             git push -u origin "$BRANCH"
             gh pr create \
               --title "Bump $TILE_NAME to $VERSION [skip ci]" \
-              --body "Auto-created by tessl-smart-publish — direct push blocked by branch protection."
+              --body "Auto-created by patch-version-publish — direct push blocked by branch protection."
           }
         }
