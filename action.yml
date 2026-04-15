@@ -33,8 +33,12 @@ runs:
         TILE_NAME=$(jq -r .name "$TILE_JSON")
         LOCAL=$(jq -r .version "$TILE_JSON")
 
-        # Query registry for the latest published version
-        LATEST=$(tessl tile info "$TILE_NAME" 2>/dev/null | grep 'Latest Version' | awk '{print $NF}')
+        # Query registry for the latest published version.
+        # Trailing `|| true` absorbs the pipefail that would otherwise trigger on a
+        # first publish: `tessl tile info` exits 1 on 404, `grep` exits 1 on no match,
+        # and the step shell runs with `-e -o pipefail`, so the pipeline failure would
+        # abort the script before we reach the `if [ -z "$LATEST" ]` branch below.
+        LATEST=$(tessl tile info "$TILE_NAME" 2>/dev/null | grep 'Latest Version' | awk '{print $NF}' || true)
 
         if [ -z "$LATEST" ]; then
           # First publish — use version from tile.json as-is
