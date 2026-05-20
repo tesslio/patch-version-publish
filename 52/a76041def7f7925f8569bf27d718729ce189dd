@@ -1,0 +1,20 @@
+README.md
+  s_739840c8c5eb16::t_43812e20dce484 75-77
+  s_739840c8c5eb16::t_43959c5e471b75 18-34,40-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "52a76041def7f7925f8569bf27d718729ce189dd",
+  "prompts": {},
+  "sessions": {
+    "s_739840c8c5eb16": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "582edfc5-59ff-46e3-964a-cf85b2630e3b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Joe Holdcroft <joe@tessl.io>"
+    }
+  }
+}
