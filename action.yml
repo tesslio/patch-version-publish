@@ -86,11 +86,27 @@ runs:
         git diff --cached --quiet || {
           git commit -m "Bump $TILE_NAME to $VERSION [skip ci]"
           git push 2>/dev/null || {
+            # Direct push blocked (branch protection). Fall back to a PR.
+            # Publish already succeeded; if the PR fallback also fails (typically
+            # because the repo/org disables "Allow GitHub Actions to create and
+            # approve pull requests"), warn and exit 0 — the next run will
+            # auto-bump from the registry, so the bump isn't lost, just deferred.
             BRANCH="tessl-bump-$VERSION"
             git checkout -b "$BRANCH"
-            git push -u origin "$BRANCH"
-            gh pr create \
+            if ! git push -u origin "$BRANCH" 2>&1; then
+              echo "::warning::Published $TILE_NAME@$VERSION, but could not push bump branch $BRANCH. The version bump was not committed back to the repo; the next run will re-bump from the registry."
+              exit 0
+            fi
+            if ! gh pr create \
               --title "Bump $TILE_NAME to $VERSION [skip ci]" \
-              --body "Auto-created by patch-version-publish — direct push blocked by branch protection."
+              --body "Auto-created by patch-version-publish — direct push blocked by branch protection." 2>&1; then
+              # PR creation failed — delete the orphaned bump branch we just
+              # pushed, since the registry remains source of truth and the next
+              # run will re-bump anyway. Best-effort: if cleanup also fails,
+              # don't escalate.
+              git push origin --delete "$BRANCH" 2>/dev/null || true
+              echo "::warning::Published $TILE_NAME@$VERSION, but could not open a PR for the version bump (likely missing 'Allow GitHub Actions to create and approve pull requests' in repo or org settings: Settings → Actions → General → Workflow permissions). The next run will re-bump from the registry."
+              exit 0
+            fi
           }
         }
