@@ -15,19 +15,46 @@ For a real release — bump the version in `tile.json` yourself. The action will
 ## Usage
 
 ```yaml
-- uses: actions/checkout@v4
-- uses: tesslio/patch-version-publish@v1
-  with:
-    token: ${{ secrets.TESSL_TOKEN }}
+name: Publish
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tesslio/patch-version-publish@v1
+        with:
+          token: ${{ secrets.TESSL_TOKEN }}
 ```
 
 For tiles in a subdirectory:
 
 ```yaml
-- uses: tesslio/patch-version-publish@v1
-  with:
-    token: ${{ secrets.TESSL_TOKEN }}
-    path: tiles/my-tile
+name: Publish
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: tesslio/patch-version-publish@v1
+        with:
+          token: ${{ secrets.TESSL_TOKEN }}
+          path: tiles/my-tile
 ```
 
 ## Inputs
@@ -45,5 +72,8 @@ For tiles in a subdirectory:
 
 ## Requirements
 
+The action must be run from a job that declares the following `permissions:` (see the "Usage" examples above for placement — `permissions:` is a job-level key and can't be set by the action itself):
+
+- `id-token: write` permission — lets the Tessl CLI fetch a GitHub OIDC token and present it to the registry so the published tile is linked back to its source repo. Without it, `tessl tile publish` still reports `Published <name>@<version>` and the workflow goes green, but the tile is published **unlinked** — there is no signal in the logs that anything is wrong.
 - `contents: write` permission — the action commits the bumped version back to `tile.json`
 - `pull-requests: write` permission — if branch protection blocks direct push, the action falls back to creating a PR with the version bump
