@@ -34,8 +34,16 @@ runs:
         if [ ! -f "$MANIFEST" ]; then
           MANIFEST="$TILE_PATH/tile.json"
         fi
+        if [ ! -f "$MANIFEST" ]; then
+          echo "::error::No tile manifest found at $TILE_PATH — expected .tessl-plugin/plugin.json or tile.json."
+          exit 1
+        fi
         TILE_NAME=$(jq -r .name "$MANIFEST")
         LOCAL=$(jq -r .version "$MANIFEST")
+        if [ -z "$TILE_NAME" ] || [ "$TILE_NAME" = "null" ] || [ -z "$LOCAL" ] || [ "$LOCAL" = "null" ]; then
+          echo "::error::Manifest $MANIFEST is missing a .name or .version field."
+          exit 1
+        fi
 
         # Query registry for the latest published version.
         # Only treat the expected "not found" case as first publish; surface all
