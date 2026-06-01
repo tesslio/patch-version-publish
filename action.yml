@@ -29,9 +29,21 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         TILE_PATH="${{ inputs.path }}"
-        TILE_JSON="$TILE_PATH/tile.json"
-        TILE_NAME=$(jq -r .name "$TILE_JSON")
-        LOCAL=$(jq -r .version "$TILE_JSON")
+        # plugin.json is authoritative when present; fall back to legacy tile.json.
+        MANIFEST="$TILE_PATH/.tessl-plugin/plugin.json"
+        if [ ! -f "$MANIFEST" ]; then
+          MANIFEST="$TILE_PATH/tile.json"
+        fi
+        if [ ! -f "$MANIFEST" ]; then
+          echo "::error::No tile manifest found at $TILE_PATH — expected .tessl-plugin/plugin.json or tile.json."
+          exit 1
+        fi
+        TILE_NAME=$(jq -r .name "$MANIFEST")
+        LOCAL=$(jq -r .version "$MANIFEST")
+        if [ -z "$TILE_NAME" ] || [ "$TILE_NAME" = "null" ] || [ -z "$LOCAL" ] || [ "$LOCAL" = "null" ]; then
+          echo "::error::Manifest $MANIFEST is missing a .name or .version field."
+          exit 1
+        fi
 
         # Query registry for the latest published version.
         # Only treat the expected "not found" case as first publish; surface all
@@ -52,11 +64,11 @@ runs:
         fi
 
         if [ -z "$LATEST" ]; then
-          # First publish — use version from tile.json as-is
+          # First publish — use version from the manifest as-is
           VERSION="$LOCAL"
-          echo "First publish — using tile.json version $VERSION"
+          echo "First publish — using manifest version $VERSION"
         else
-          # Compare: if tile.json is ahead of registry, respect the manual bump
+          # Compare: if the manifest is ahead of registry, respect the manual bump
           # Version comparison: split into components
           local_parts=(${LOCAL//./ })
           latest_parts=(${LATEST//./ })
@@ -65,7 +77,7 @@ runs:
 
           if [ "$LOCAL_NUM" -gt "$LATEST_NUM" ]; then
             VERSION="$LOCAL"
-            echo "tile.json ($LOCAL) is ahead of registry ($LATEST) — publishing as-is"
+            echo "$MANIFEST ($LOCAL) is ahead of registry ($LATEST) — publishing as-is"
           else
             MAJOR=$(echo "$LATEST" | cut -d. -f1)
             MINOR=$(echo "$LATEST" | cut -d. -f2)
@@ -75,14 +87,14 @@ runs:
           fi
         fi
 
-        jq --arg v "$VERSION" '.version = $v' "$TILE_JSON" > "$TILE_JSON.tmp" && mv "$TILE_JSON.tmp" "$TILE_JSON"
+        jq --arg v "$VERSION" '.version = $v' "$MANIFEST" > "$MANIFEST.tmp" && mv "$MANIFEST.tmp" "$MANIFEST"
         tessl tile publish "$TILE_PATH"
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
         # Commit the version back to the repo if it changed
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add "$TILE_JSON"
+        git add "$MANIFEST"
         git diff --cached --quiet || {
           git commit -m "Bump $TILE_NAME to $VERSION [skip ci]"
           git push 2>/dev/null || {
