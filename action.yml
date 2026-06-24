@@ -1,12 +1,12 @@
 name: 'Tessl Smart Publish'
-description: 'Publish a tessl tile, auto-bumping patch from the registry'
+description: 'Publish a tessl plugin, auto-bumping patch from the registry'
 
 inputs:
   token:
     description: 'Tessl API token'
     required: true
   path:
-    description: 'Path to the tile directory (default: repo root)'
+    description: 'Path to the plugin directory (default: repo root)'
     required: false
     default: '.'
 
@@ -28,81 +28,64 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        TILE_PATH="${{ inputs.path }}"
+        PLUGIN_PATH="${{ inputs.path }}"
         # plugin.json is authoritative when present; fall back to legacy tile.json.
-        MANIFEST="$TILE_PATH/.tessl-plugin/plugin.json"
+        MANIFEST="$PLUGIN_PATH/.tessl-plugin/plugin.json"
         if [ ! -f "$MANIFEST" ]; then
-          MANIFEST="$TILE_PATH/tile.json"
+          MANIFEST="$PLUGIN_PATH/tile.json"
         fi
         if [ ! -f "$MANIFEST" ]; then
-          echo "::error::No tile manifest found at $TILE_PATH — expected .tessl-plugin/plugin.json or tile.json."
+          echo "::error::No plugin manifest found at $PLUGIN_PATH — expected .tessl-plugin/plugin.json or tile.json."
           exit 1
         fi
-        TILE_NAME=$(jq -r .name "$MANIFEST")
-        LOCAL=$(jq -r .version "$MANIFEST")
-        if [ -z "$TILE_NAME" ] || [ "$TILE_NAME" = "null" ] || [ -z "$LOCAL" ] || [ "$LOCAL" = "null" ]; then
+        PLUGIN_NAME=$(jq -r .name "$MANIFEST")
+        if [ -z "$PLUGIN_NAME" ] || [ "$PLUGIN_NAME" = "null" ] || [ "$(jq -r .version "$MANIFEST")" = "null" ]; then
           echo "::error::Manifest $MANIFEST is missing a .name or .version field."
           exit 1
         fi
 
-        # Query registry for the latest published version.
-        # Only treat the expected "not found" case as first publish; surface all
-        # other failures so auth/network/CLI issues do not get silently masked.
-        if INFO_OUTPUT=$(tessl tile info "$TILE_NAME" 2>&1); then
-          LATEST=$(printf '%s\n' "$INFO_OUTPUT" | grep 'Latest Version' | awk '{print $NF}')
-          if [ -z "$LATEST" ]; then
-            echo "::error::Unable to determine latest published version for $TILE_NAME from 'tessl tile info' output."
-            exit 1
-          fi
-        else
-          if printf '%s\n' "$INFO_OUTPUT" | grep -qi '404'; then
-            LATEST=""
-          else
-            echo "::error::Failed to query Tessl registry for $TILE_NAME: $INFO_OUTPUT"
-            exit 1
-          fi
+        # Require GitHub OIDC. Without id-token: write the CLI publishes the plugin
+        # unlinked from its source repo and the job still goes green, so fail loudly here.
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+          echo "::error::No GitHub OIDC token available — the job is missing 'permissions: id-token: write'. Publishing would leave the plugin unlinked from its source repo. Add id-token: write (see README) and re-run."
+          exit 1
         fi
 
-        if [ -z "$LATEST" ]; then
-          # First publish — use version from the manifest as-is
-          VERSION="$LOCAL"
-          echo "First publish — using manifest version $VERSION"
+        # Distinguish a first publish (404) from auth/network failures so the latter
+        # are not silently treated as a first publish. tessl plugin publish --bump patch
+        # publishes the manifest version, or bumps one patch when it already exists.
+        if INFO_OUTPUT=$(tessl plugin info "$PLUGIN_NAME" 2>&1); then
+          tessl plugin publish --bump patch "$PLUGIN_PATH"
+        elif printf '%s\n' "$INFO_OUTPUT" | grep -qi '404'; then
+          # First publish — --bump has no prior version to bump from, so publish as-is.
+          tessl plugin publish "$PLUGIN_PATH"
         else
-          # Compare: if the manifest is ahead of registry, respect the manual bump
-          # Version comparison: split into components
-          local_parts=(${LOCAL//./ })
-          latest_parts=(${LATEST//./ })
-          LOCAL_NUM=$(( ${local_parts[0]} * 1000000 + ${local_parts[1]} * 1000 + ${local_parts[2]} ))
-          LATEST_NUM=$(( ${latest_parts[0]} * 1000000 + ${latest_parts[1]} * 1000 + ${latest_parts[2]} ))
-
-          if [ "$LOCAL_NUM" -gt "$LATEST_NUM" ]; then
-            VERSION="$LOCAL"
-            echo "$MANIFEST ($LOCAL) is ahead of registry ($LATEST) — publishing as-is"
-          else
-            MAJOR=$(echo "$LATEST" | cut -d. -f1)
-            MINOR=$(echo "$LATEST" | cut -d. -f2)
-            PATCH=$(echo "$LATEST" | cut -d. -f3)
-            VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-            echo "Auto-bumping from registry $LATEST to $VERSION"
-          fi
+          echo "::error::Failed to query Tessl registry for $PLUGIN_NAME: $INFO_OUTPUT"
+          exit 1
         fi
 
-        jq --arg v "$VERSION" '.version = $v' "$MANIFEST" > "$MANIFEST.tmp" && mv "$MANIFEST.tmp" "$MANIFEST"
-        tessl tile publish "$TILE_PATH"
+        # publish writes the resolved version back to the manifest; read it for the output.
+        VERSION=$(jq -r .version "$MANIFEST")
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+        REGISTRY_URL="https://tessl.io/registry/$PLUGIN_NAME/$VERSION"
+        echo "Published $PLUGIN_NAME@$VERSION — $REGISTRY_URL"
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          echo "Published [\`$PLUGIN_NAME@$VERSION\`]($REGISTRY_URL)" >> "$GITHUB_STEP_SUMMARY"
+        fi
 
         # Commit the version back to the repo if it changed
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add "$MANIFEST"
         git diff --cached --quiet || {
-          git commit -m "Bump $TILE_NAME to $VERSION [skip ci]"
+          git commit -m "Bump $PLUGIN_NAME to $VERSION [skip ci]"
           git push 2>/dev/null || {
             BRANCH="tessl-bump-$VERSION"
             git checkout -b "$BRANCH"
             git push -u origin "$BRANCH"
             gh pr create \
-              --title "Bump $TILE_NAME to $VERSION [skip ci]" \
+              --title "Bump $PLUGIN_NAME to $VERSION [skip ci]" \
               --body "Auto-created by patch-version-publish — direct push blocked by branch protection."
           }
         }
