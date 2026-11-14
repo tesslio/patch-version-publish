@@ -8,6 +8,12 @@ Every push changes the plugin's content, and distinct content should have a dist
 
 The manifest is `.tessl-plugin/plugin.json` when present (the authoritative plugin form), falling back to the legacy `tile.json`. No configuration needed — the action detects which one the repo uses.
 
+Only the manifest is included in the version commit; unrelated staged files are preserved. When a direct push is blocked, the fallback branch includes the plugin name and version, and its PR targets the repository running the workflow.
+
+## Local tests
+
+Run `python3 -m unittest discover -s tests -v` with Bash and Git available. The tests use temporary local repositories and stub external commands; they do not publish plugins or contact GitHub.
+
 ## What this doesn't do
 
 This is not a replacement for proper version management. It's a catch-all for chore commits and routine changes where you don't intend to craft a new release. There's no option for minor or major bumps on purpose.

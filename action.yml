@@ -77,14 +77,15 @@ runs:
         # Commit the version back to the repo if it changed
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add "$MANIFEST"
-        git diff --cached --quiet || {
-          git commit -m "Bump $PLUGIN_NAME to $VERSION [skip ci]"
+        git add -- "$MANIFEST"
+        git diff --cached --quiet -- "$MANIFEST" || {
+          git commit --only -m "Bump $PLUGIN_NAME to $VERSION [skip ci]" -- "$MANIFEST"
           git push 2>/dev/null || {
-            BRANCH="tessl-bump-$VERSION"
+            BRANCH="tessl-bump/$PLUGIN_NAME/$VERSION"
             git checkout -b "$BRANCH"
             git push -u origin "$BRANCH"
             gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
               --title "Bump $PLUGIN_NAME to $VERSION [skip ci]" \
               --body "Auto-created by patch-version-publish — direct push blocked by branch protection."
           }
